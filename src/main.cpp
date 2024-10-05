@@ -14,6 +14,10 @@ constexpr float PADDLE_SPEED = SCREEN_HEIGHT * 0.5f;
 constexpr float PADDLE_WIDTH = 40.0f;
 constexpr float PADDLE_HEIGHT = 80.0f;
 
+Sound ballHit;
+Music backgroundSong;
+Music victoryMusic;
+
 struct Box
 {
     float xMin;
@@ -64,7 +68,7 @@ void ResetBall(Vector2& position, Vector2& direction)
     position = CENTER;
     direction.x = rand() % 2 == 0 ? -1.0f : 1.0f;
     direction.y = 0.0f;
-    direction = Rotate(direction, Random(0.0f, 360.0f) * DEG2RAD);
+    direction = Rotate(direction, Random(-45.0f, 260.0f) * DEG2RAD);
 }
 
 void DrawBall(Vector2 position, Color color)
@@ -90,24 +94,55 @@ int main()
     paddle2Position.x = SCREEN_WIDTH * 0.95f;
     paddle1Position.y = paddle2Position.y = CENTER.y;
 
-    int testScore = 0;
+    int redScore = 0;
+    int blueScore = 0;
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pong");
     SetTargetFPS(60);
+    InitAudioDevice();
+    ballHit = LoadSound("assets/betterPongNoise.mp3");
+    backgroundSong = LoadMusicStream("assets/SlightChanceOfZombies.mp3");
+    victoryMusic = LoadMusicStream("assets/lethalCompany.mp3");
+    PlayMusicStream(backgroundSong);
+    SetSoundVolume(ballHit, 0.1);
+    SetMusicVolume(backgroundSong, 0.05);
+    SetMusicVolume(victoryMusic, 0.3);
     while (!WindowShouldClose())
     {
         float dt = GetFrameTime();
         float ballDelta = BALL_SPEED * dt;
         float paddleDelta = PADDLE_SPEED * dt;
 
-        // Move paddle with key input
+        UpdateMusicStream(backgroundSong);
+        UpdateMusicStream(victoryMusic);
+
+        // Move paddle 1 with W and A keys
         if (IsKeyDown(KEY_W))
             paddle1Position.y -= paddleDelta;
         if (IsKeyDown(KEY_S))
             paddle1Position.y += paddleDelta;
 
-        // Mirror paddle 1 for now
-        paddle2Position.y = paddle1Position.y;
+        // Move paddle 2 with arrow keys
+        if (IsKeyDown(KEY_UP))
+            paddle2Position.y -= paddleDelta;
+        if (IsKeyDown(KEY_DOWN))
+            paddle2Position.y += paddleDelta;
+
+        //Resets the game after Space bar is pressed
+        if (IsKeyPressed(KEY_SPACE)) 
+        {
+            ResetBall(ballPosition, ballDirection);
+            redScore = 0;
+            blueScore = 0;
+            //Checks if the background music is playing in order to reset it properly
+            if (IsMusicStreamPlaying(backgroundSong)) 
+            {
+                StopMusicStream(backgroundSong);
+            }
+            StopMusicStream(victoryMusic);
+            PlayMusicStream(backgroundSong);
+            EndDrawing();
+        }
 
         float phh = PADDLE_HEIGHT * 0.5f;
         paddle1Position.y = Clamp(paddle1Position.y, phh, SCREEN_HEIGHT - phh);
@@ -120,11 +155,22 @@ int main()
         Box paddle2Box = PaddleBox(paddle2Position);
 
         // TODO -- increment the scoring player's score after they've touched the ball and the ball goes too far right/left
-        testScore++;
-        if (ballBox.xMin < 0.0f || ballBox.xMax > SCREEN_WIDTH)
+        
+        // Resets the ball and adds a point to the team that hits its opposite side of the screen
+        if (ballBox.xMin < 0.0f) 
         {
             ballDirection.x *= -1.0f;
+            blueScore++;
+            ResetBall(ballPosition, ballDirection);
         }
+        if (ballBox.xMax > SCREEN_WIDTH)
+        {
+            ballDirection.x *= -1.0f;
+            redScore++;
+            ResetBall(ballPosition, ballDirection);
+        }
+
+        // I decided to only put the ball sound fgor the paddle hit because it got lowkey annoying ngl
         if (ballBox.yMin < 0.0f || ballBox.yMax > SCREEN_HEIGHT)
         {
             ballDirection.y *= -1.0f;
@@ -132,6 +178,7 @@ int main()
         if (BoxOverlap(ballBox, paddle1Box) || BoxOverlap(ballBox, paddle2Box))
         {
             ballDirection.x *= -1.0f;
+            PlaySound(ballHit);
         }
 
         // Update ball position after collision resolution, then render
@@ -140,17 +187,42 @@ int main()
         BeginDrawing();
         ClearBackground(BLACK);
         DrawBall(ballPosition, WHITE);
-        DrawPaddle(paddle1Position, WHITE);
-        DrawPaddle(paddle2Position, WHITE);
+        DrawPaddle(paddle1Position, RED);
+        DrawPaddle(paddle2Position, BLUE);
 
         // Text format requires you to put a '%i' wherever you want an integer, then add said integer after the comma
-        const char* testScoreText = TextFormat("Test Score: %i ", testScore);
+        const char* redScoreText = TextFormat(" %i ", redScore);
+        const char* blueScoreText = TextFormat(" %i ", blueScore);
+
         
         // We can measure our text for more exact positioning. This puts our score in the center of our screen!
-        DrawText(testScoreText, SCREEN_WIDTH * 0.5f - MeasureText(testScoreText, 20) * 0.5f, 50, 20, BLUE);
+        DrawText(redScoreText, SCREEN_WIDTH * 0.4f - MeasureText(redScoreText, 20) * 0.5f, 50, 20, RED);
+        DrawText(blueScoreText, SCREEN_WIDTH * 0.6f - MeasureText(blueScoreText, 20) * 0.5f, 50, 20, BLUE);
+
+        // Displays which team won and stops ball from moving
+        if (redScore > 5) 
+        {
+            const char* redVictoryText = TextFormat("Red Team Wins!");
+            DrawText(redVictoryText, CENTER.x - MeasureText(redVictoryText, 50), CENTER.y, 100, RED);
+            ballPosition = CENTER;
+            PlayMusicStream(victoryMusic);
+            StopMusicStream(backgroundSong);
+        }
+        else if (blueScore > 5) 
+        {
+            const char* blueVictoryText = TextFormat("Blue Team Wins!");
+            DrawText(blueVictoryText, CENTER.x - MeasureText(blueVictoryText, 50), CENTER.y, 100, BLUE);
+            ballPosition = CENTER;
+            PlayMusicStream(victoryMusic);
+            StopMusicStream(backgroundSong);
+        }
+        
         EndDrawing();
     }
-
+    CloseAudioDevice();
+    UnloadMusicStream(backgroundSong);
+    UnloadMusicStream(victoryMusic);
+    UnloadSound(ballHit);
     CloseWindow();
     return 0;
 }
