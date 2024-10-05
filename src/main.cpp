@@ -97,6 +97,7 @@ int main()
     int redScore = 0;
     int blueScore = 0;
 
+
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pong");
     SetTargetFPS(60);
     InitAudioDevice();
@@ -105,8 +106,8 @@ int main()
     victoryMusic = LoadMusicStream("assets/lethalCompany.mp3");
     PlayMusicStream(backgroundSong);
     SetSoundVolume(ballHit, 0.1);
-    SetMusicVolume(backgroundSong, 0.05);
-    SetMusicVolume(victoryMusic, 0.3);
+    SetMusicVolume(backgroundSong, 0.02);
+    SetMusicVolume(victoryMusic, 0.1);
     while (!WindowShouldClose())
     {
         float dt = GetFrameTime();
@@ -170,7 +171,7 @@ int main()
             ResetBall(ballPosition, ballDirection);
         }
 
-        // I decided to only put the ball sound fgor the paddle hit because it got lowkey annoying ngl
+        // I decided to only put the ball sound for the paddle hit because it got lowkey annoying ngl
         if (ballBox.yMin < 0.0f || ballBox.yMax > SCREEN_HEIGHT)
         {
             ballDirection.y *= -1.0f;
